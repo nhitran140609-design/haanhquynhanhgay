@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Quiz Game</title>
+<style>
+    body {
+        margin: 0; padding: 0;
+        display: flex; justify-content: center; align-items: center;
+        height: 100vh; background: #f0f0f0; font-family: Arial;
+    }
+    #gameContainer { text-align: center; }
+    canvas { border: 2px solid #333; background: #fff; margin-bottom: 20px; }
+    #result { font-size: 24px; font-weight: bold; height: 30px; }
+    .correct { color: green; }
+    .wrong { color: red; }
+    button {
+        padding: 10px 20px; background: #4CAF50; color: #fff;
+        border: none; border-radius: 6px; cursor: pointer; margin: 5px;
+    }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="result"></div>
+
+    <!-- 🎵 Bạn tự gắn file -->
+    <audio id="correctSound" src="correct.mp3"></audio>
+    <audio id="wrongSound" src="wrong.mp3"></audio>
+    <audio id="bgMusic" src="bgmusic.mp3" loop></audio>
+
+    <button id="musicBtn">🔊 Bật/Tắt nhạc</button>
+    <button id="restartBtn">Chơi lại</button>
+    <p>Nhấn phím 1,2,3,4 để chọn đáp án</p>
+</div>
+
+<script>
+// ================== AUDIO ===================
+const correctSound = document.getElementById("correctSound");
+const wrongSound   = document.getElementById("wrongSound");
+const bgMusic      = document.getElementById("bgMusic");
+
+// ================== CANVAS ===================
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const resultDiv = document.getElementById("result");
+const restartBtn = document.getElementById("restartBtn");
+const musicBtn = document.getElementById("musicBtn");
+
+// Images
+const charNeutral = new Image();
+const charHappy = new Image();
+const charSad = new Image();
+const bg = new Image();
+
+bg.src = "background.jpg";
+charNeutral.src = "character_neutral.png";
+charHappy.src = "character_happy.png";
+charSad.src = "character_sad.png";
+
+// Questions
+const questions = [
+{q:"Hiện nay, những quốc gia nào vẫn kiên định con đường xây dựng CNXH?",
+ a:["Trung Quốc, Việt Nam, Cuba, Lào","Trung Quốc, Nga, Việt Nam, Cam-pu-chia","Việt Nam, Cuba, Hàn Quốc, Lào","Cuba, Trung Quốc, Cam-pu-chia, Nhật Bản"],c:1},
+{q:"Ai khởi xướng cải cách mở cửa Trung Quốc năm 1978?",
+ a:["Mao Trạch Đông","Đặng Tiểu Bình","Giang Trạch Dân","Tập Cận Bình"],c:2},
+{q:"Những thành tựu cải cách... chứng minh điều gì?",
+ a:["CNXH có sức sống, có triển vọng","CNTB không còn duy nhất","CNXH mở rộng không gian địa lí","CNXH thành hệ thống thế giới"],c:1},
+{q:"Bài học cho VN từ cải cách TQ?",
+ a:["KTTT tư bản","TT tự do","Lấy chính trị làm trung tâm","KTTT XHCN + mở cửa"],c:4},
+{q:"Mục tiêu lâu dài của VN khi xây dựng CNXH?",
+ a:["Dân giàu, nước mạnh, dân chủ, công bằng, văn minh","Phát triển CNTB","CNH bằng mọi giá","Giảm vai trò nhà nước"],c:1}
+];
+
+let i = 0, score = 0, state = "neutral", anim = 0, end = false;
+
+// Draw
+function draw() {
+    ctx.clearRect(0,0,800,600);
+    ctx.drawImage(bg,0,0,800,600);
+
+    // bounce + subtle scale
+    const y = 150 + Math.sin(anim/10)*8;
+    const s = 1 + Math.sin(anim/20)*0.03;
+    const img = state==="happy"?charHappy:state==="sad"?charSad:charNeutral;
+
+    ctx.save();
+    ctx.translate(400, y);
+    ctx.scale(s, s);
+    ctx.drawImage(img, -75, -75, 150, 150);
+    ctx.restore();
+
+    const q = questions[i];
+    ctx.fillStyle="#000";
+    ctx.font="22px Arial";
+    ctx.fillText(q.q,40,350);
+    ctx.font="20px Arial";
+    q.a.forEach((a,k)=>ctx.fillText(`${k+1}. ${a}`,60,390+k*35));
+    ctx.fillText(`Câu ${i+1}/${questions.length} | Điểm: ${score}`,20,40);
+
+    anim++;
+    requestAnimationFrame(draw);
+}
+draw();
+
+// Key events
+document.addEventListener("keydown",e=>{
+    if(end) return;
+    const k = +e.key;
+    if(k>=1 && k<=4) {
+        if(k === questions[i].c){
+            score++; state="happy"; correctSound.play();
+        } else {
+            state="sad"; wrongSound.play();
+        }
+
+        resultDiv.textContent = k===questions[i].c ? "✔ Đúng" : "✘ Sai";
+        resultDiv.className   = k===questions[i].c ? "correct" : "wrong";
+
+        setTimeout(()=>{
+            i++;
+            state="neutral";
+            resultDiv.textContent="";
+            if(i>=questions.length) {
+                end=true;
+                alert(`🎯 Hoàn thành!\nĐiểm: ${score}/${questions.length}`);
+            }
+        },1200);
+    }
+});
+
+// Restart
+restartBtn.onclick = ()=>{
+    i=0; score=0; end=false; state="neutral";
+};
+
+// Music button
+let musicOn = false;
+musicBtn.onclick = ()=>{
+    musicOn = !musicOn;
+    if(musicOn) bgMusic.play(); else bgMusic.pause();
+};
+</script>
+</body>
+</html>
