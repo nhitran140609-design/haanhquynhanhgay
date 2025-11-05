@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Quiz CNXH — Có hình + âm (tên file đã được append)</title>
+<title>Quiz CNXH —</title>
 <style>
   body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f3f8ff;font-family:Arial,Helvetica,sans-serif}
   #wrap{width:880px;padding:18px;background:#fff;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.08);text-align:center}
@@ -30,7 +30,7 @@
       <button id="musicBtn">🔊 Bật/Tắt nhạc</button>
       <button id="restartBtn" class="secondary">🔁 Chơi lại</button>
     </div>
-    <div class="hint">Nhấn phím 1 - 4 để chọn đáp án. Nếu thiếu ảnh/âm thanh, game vẫn chạy (có fallback).</div>
+    <div class="hint">Nhấn phím 1 - 4 để chọn đáp án.</div>
   </div>
 
 <script>
@@ -55,10 +55,10 @@ function loadImg(src){
   img.onerror = () => { img._fail = true; img._loaded = true; };
   return img;
 }
-const bgImg = loadImg('background.jpg.jfif');
-const imgNeutral = loadImg('character_neutral.png.jfif');
-const imgHappy = loadImg('character_happy.png.jfif');
-const imgSad = loadImg('character_sad.png.jfif');
+const bgImg =body-image:url('character_neutral.png.jfif');
+const imgNeutral = body-image:url('character_neutral.png.jfif');
+const imgHappy = body-image:url('character_happy.png.jfif');
+const imgSad = body-image:url('character_sad.png.jfif');
 
 /* ========== Questions (correct is 1..4) ========== */
 const questions = [
@@ -293,3 +293,4 @@ requestAnimationFrame(render);
 </script>
 </body>
 </html>
+
