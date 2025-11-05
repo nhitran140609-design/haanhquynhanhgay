@@ -1,148 +1,122 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AI Quiz Game</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Game</title>
 <style>
     body {
         margin: 0; padding: 0;
         display: flex; justify-content: center; align-items: center;
-        height: 100vh; background: #f0f0f0; font-family: Arial;
+        height: 100vh; background: #f2f2f2; font-family: Arial;
     }
-    #gameContainer { text-align: center; }
-    canvas { border: 2px solid #333; background: #fff; margin-bottom: 20px; }
-    #result { font-size: 24px; font-weight: bold; height: 30px; }
-    .correct { color: green; }
-    .wrong { color: red; }
-    button {
-        padding: 10px 20px; background: #4CAF50; color: #fff;
-        border: none; border-radius: 6px; cursor: pointer; margin: 5px;
-    }
+    canvas { background:#fff; border:2px solid #000; }
+    #controls { text-align:center; margin-top:10px; }
 </style>
 </head>
 <body>
-<div id="gameContainer">
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div id="result"></div>
 
-    <!-- 🎵 Bạn tự gắn file -->
+<div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="result" style="font-size:22px;font-weight:bold;height:30px"></div>
+
+    <!-- Bạn tự thay file mp3 -->
     <audio id="correctSound" src="correct.mp3.mp4"></audio>
     <audio id="wrongSound" src="wrong.mp3.mp4"></audio>
-    <audio id="bgMusic" src="bgmusic.mp3.mp4" loop></audio>
 
-    <button id="musicBtn">🔊 Bật/Tắt nhạc</button>
-    <button id="restartBtn">Chơi lại</button>
-    <p>Nhấn phím 1,2,3,4 để chọn đáp án</p>
+    <div id="controls">
+        <button id="musicBtn">🎵 Bật/Tắt nhạc</button>
+        <button id="restartBtn">🔁 Chơi lại</button>
+        <p>Nhấn phím 1 - 4 để chọn đáp án</p>
+    </div>
 </div>
 
 <script>
-// ================== AUDIO ===================
-const correctSound = document.getElementById("correctSound");
-const wrongSound   = document.getElementById("wrongSound");
-const bgMusic      = document.getElementById("bgMusic");
+// Canvas
+const c = document.getElementById("gameCanvas");
+const ctx = c.getContext("2d");
+const result = document.getElementById("result");
 
-// ================== CANVAS ===================
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const resultDiv = document.getElementById("result");
-const restartBtn = document.getElementById("restartBtn");
-const musicBtn = document.getElementById("musicBtn");
+// Audio
+const correct = document.getElementById("correctSound");
+const wrong = document.getElementById("wrongSound");
+const bg = document.getElementById("bgMusic");
 
-// Images
-const charNeutral = new Image();
-const charHappy = new Image();
-const charSad = new Image();
-const bg = new Image();
-
-bg.src = "background.jpg";
-charNeutral.src = "character_neutral.png.jfif";
-charHappy.src = "character_happy.png.jfif";
-charSad.src = "character_sad.png.jfif";
+// Images (auto fallback)
+function loadImg(src){
+    const img = new Image();
+    img.src = src;
+    img.onerror = () => img._fail = true;
+    return img;
+}
+const neutral = loadImg("character_neutral.png.jfif");
+const happy   = loadImg("character_happy.png.jfif");
+const sad     = loadImg("character_sad.png.jfif");
 
 // Questions
-const questions = [
-{q:"Hiện nay, những quốc gia nào vẫn kiên định con đường xây dựng CNXH?",
- a:["Trung Quốc, Việt Nam, Cuba, Lào","Trung Quốc, Nga, Việt Nam, Cam-pu-chia","Việt Nam, Cuba, Hàn Quốc, Lào","Cuba, Trung Quốc, Cam-pu-chia, Nhật Bản"],c:1},
-{q:"Ai khởi xướng cải cách mở cửa Trung Quốc năm 1978?",
- a:["Mao Trạch Đông","Đặng Tiểu Bình","Giang Trạch Dân","Tập Cận Bình"],c:2},
-{q:"Những thành tựu cải cách... chứng minh điều gì?",
- a:["CNXH có sức sống, có triển vọng","CNTB không còn duy nhất","CNXH mở rộng không gian địa lí","CNXH thành hệ thống thế giới"],c:1},
-{q:"Bài học cho VN từ cải cách TQ?",
- a:["KTTT tư bản","TT tự do","Lấy chính trị làm trung tâm","KTTT XHCN + mở cửa"],c:4},
-{q:"Mục tiêu lâu dài của VN khi xây dựng CNXH?",
- a:["Dân giàu, nước mạnh, dân chủ, công bằng, văn minh","Phát triển CNTB","CNH bằng mọi giá","Giảm vai trò nhà nước"],c:1}
+const q = [
+{q:"Quốc gia kiên định CNXH?",a:["TQ, VN, Cuba, Lào","TQ, Nga, VN, Cam","VN, Cuba, HQ, Lào","Cuba, TQ, Cam, Nhật"],c:1},
+{q:"Ai khởi xướng đổi mới TQ 1978?",a:["Mao","Đặng","Giang","Tập"],c:2},
+{q:"Thành tựu cải cách→ chứng minh?",a:["CNXH có sức sống","TBCN ko duy nhất","CNXH mở rộng","CNXH toàn cầu"],c:1},
+{q:"Bài học VN?",a:["Tư bản","Tự do","Chính trị trước","KTTT XHCN + mở cửa"],c:4},
+{q:"Mục tiêu VN?",a:["Dân giàu nước mạnh","Phát triển TBCN","CNH mọi giá","Giảm vai trò NN"],c:1}
 ];
 
-let i = 0, score = 0, state = "neutral", anim = 0, end = false;
+let i=0,score=0, state="neutral", anim=0, end=false;
 
-// Draw
-function draw() {
+// Draw function
+function draw(){
     ctx.clearRect(0,0,800,600);
-    ctx.drawImage(bg,0,0,800,600);
 
-    // bounce + subtle scale
+    // background
+    if(!bgImg._fail) ctx.drawImage(bgImg,0,0,800,600);
+    else {ctx.fillStyle="#ddd"; ctx.fillRect(0,0,800,600);}
+
+    // character
+    const img = state==="happy"?happy: state==="sad"?sad:neutral;
     const y = 150 + Math.sin(anim/10)*8;
     const s = 1 + Math.sin(anim/20)*0.03;
-    const img = state==="happy"?charHappy:state==="sad"?charSad:charNeutral;
 
     ctx.save();
-    ctx.translate(400, y);
-    ctx.scale(s, s);
-    ctx.drawImage(img, -75, -75, 150, 150);
+    ctx.translate(400,y);
+    ctx.scale(s,s);
+    if(!img._fail) ctx.drawImage(img,-75,-75,150,150);
+    else {ctx.fillStyle="#888"; ctx.fillRect(-60,-60,120,120);} // fallback
     ctx.restore();
 
-    const q = questions[i];
+    // text
     ctx.fillStyle="#000";
     ctx.font="22px Arial";
-    ctx.fillText(q.q,40,350);
+    ctx.fillText(q[i].q,40,350);
     ctx.font="20px Arial";
-    q.a.forEach((a,k)=>ctx.fillText(`${k+1}. ${a}`,60,390+k*35));
-    ctx.fillText(`Câu ${i+1}/${questions.length} | Điểm: ${score}`,20,40);
+    q[i].a.forEach((a,k)=>ctx.fillText(`${k+1}. ${a}`,60,390+k*35));
+    ctx.fillText(`Câu ${i+1}/${q.length} | Điểm: ${score}`,20,40);
 
     anim++;
     requestAnimationFrame(draw);
 }
 draw();
 
-// Key events
+// Input
 document.addEventListener("keydown",e=>{
     if(end) return;
     const k = +e.key;
-    if(k>=1 && k<=4) {
-        if(k === questions[i].c){
-            score++; state="happy"; correctSound.play();
-        } else {
-            state="sad"; wrongSound.play();
-        }
-
-        resultDiv.textContent = k===questions[i].c ? "✔ Đúng" : "✘ Sai";
-        resultDiv.className   = k===questions[i].c ? "correct" : "wrong";
+    if(k>=1 && k<=4){
+        if(k===q[i].c){ score++; state="happy"; correct.play(); result.textContent="✔ đúng!"; result.style.color="green"; }
+        else { state="sad"; wrong.play(); result.textContent="✘ sai!"; result.style.color="red"; }
 
         setTimeout(()=>{
-            i++;
-            state="neutral";
-            resultDiv.textContent="";
-            if(i>=questions.length) {
-                end=true;
-                alert(`🎯 Hoàn thành!\nĐiểm: ${score}/${questions.length}`);
-            }
-        },1200);
+            i++; result.textContent=""; state="neutral";
+            if(i>=q.length){ end=true; alert(`✅ Hoàn thành! Điểm: ${score}/${q.length}`);}
+        },1000);
     }
 });
 
-// Restart
-restartBtn.onclick = ()=>{
-    i=0; score=0; end=false; state="neutral";
-};
-
-// Music button
-let musicOn = false;
-musicBtn.onclick = ()=>{
-    musicOn = !musicOn;
-    if(musicOn) bgMusic.play(); else bgMusic.pause();
-};
+// Buttons
+document.getElementById("restartBtn").onclick = ()=>{ i=0;score=0;end=false;state="neutral"; };
+let m = false;
+document.getElementById("musicBtn").onclick=()=>{m=!m; if(m)bg.play(); else bg.pause();};
 </script>
+
 </body>
 </html>
-
