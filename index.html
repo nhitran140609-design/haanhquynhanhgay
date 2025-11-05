@@ -1,122 +1,295 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz Game</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz CNXH — Có hình + âm (tên file đã được append)</title>
 <style>
-    body {
-        margin: 0; padding: 0;
-        display: flex; justify-content: center; align-items: center;
-        height: 100vh; background: #f2f2f2; font-family: Arial;
-    }
-    canvas { background:#fff; border:2px solid #000; }
-    #controls { text-align:center; margin-top:10px; }
+  body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f3f8ff;font-family:Arial,Helvetica,sans-serif}
+  #wrap{width:880px;padding:18px;background:#fff;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.08);text-align:center}
+  canvas{display:block;margin:0 auto;border-radius:8px;background:#ffffff;border:2px solid #ccc}
+  #result{height:34px;margin:10px 0;font-weight:700;font-size:20px}
+  .controls{margin-top:8px}
+  button{padding:8px 14px;margin:0 6px;border:none;border-radius:6px;background:#1e88e5;color:#fff;cursor:pointer;font-size:15px}
+  button.secondary{background:#6c757d}
+  .hint{color:#666;margin-top:6px}
 </style>
 </head>
 <body>
+  <div id="wrap">
+    <h2>Quiz: Xây dựng CNXH</h2>
+    <canvas id="gameCanvas" width="800" height="520"></canvas>
+    <div id="result"></div>
 
-<div>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div id="result" style="font-size:22px;font-weight:bold;height:30px"></div>
-
-    <!-- Bạn tự thay file mp3 -->
+    <!-- Audio elements: tên file đã append theo yêu cầu -->
     <audio id="correctSound" src="correct.mp3.mp4"></audio>
-    <audio id="wrongSound" src="wrong.mp3.mp4"></audio>
+    <audio id="wrongSound"   src="wrong.mp3.mp4"></audio>
+    <audio id="bgMusic"      src="bgmusic.mp3.mp4" loop></audio>
 
-    <div id="controls">
-        <button id="musicBtn">🎵 Bật/Tắt nhạc</button>
-        <button id="restartBtn">🔁 Chơi lại</button>
-        <p>Nhấn phím 1 - 4 để chọn đáp án</p>
+    <div class="controls">
+      <button id="musicBtn">🔊 Bật/Tắt nhạc</button>
+      <button id="restartBtn" class="secondary">🔁 Chơi lại</button>
     </div>
-</div>
+    <div class="hint">Nhấn phím 1 - 4 để chọn đáp án. Nếu thiếu ảnh/âm thanh, game vẫn chạy (có fallback).</div>
+  </div>
 
 <script>
-// Canvas
-const c = document.getElementById("gameCanvas");
-const ctx = c.getContext("2d");
-const result = document.getElementById("result");
+/* ========== Setup ========== */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const resultDiv = document.getElementById('result');
+const restartBtn = document.getElementById('restartBtn');
+const musicBtn = document.getElementById('musicBtn');
 
-// Audio
-const correct = document.getElementById("correctSound");
-const wrong = document.getElementById("wrongSound");
-const bg = document.getElementById("bgMusic");
+const correctSound = document.getElementById('correctSound');
+const wrongSound = document.getElementById('wrongSound');
+const bgMusic = document.getElementById('bgMusic');
 
-// Images (auto fallback)
+// Load images — note: filenames have .jfif appended as you requested
 function loadImg(src){
-    const img = new Image();
-    img.src = src;
-    img.onerror = () => img._fail = true;
-    return img;
+  const img = new Image();
+  img.src = src;
+  img._loaded = false;
+  img._fail = false;
+  img.onload = () => img._loaded = true;
+  img.onerror = () => { img._fail = true; img._loaded = true; };
+  return img;
 }
-const neutral = loadImg("character_neutral.png.jfif");
-const happy   = loadImg("character_happy.png.jfif");
-const sad     = loadImg("character_sad.png.jfif");
+const bgImg = loadImg('background.jpg.jfif');
+const imgNeutral = loadImg('character_neutral.png.jfif');
+const imgHappy = loadImg('character_happy.png.jfif');
+const imgSad = loadImg('character_sad.png.jfif');
 
-// Questions
-const q = [
-{q:"Quốc gia kiên định CNXH?",a:["TQ, VN, Cuba, Lào","TQ, Nga, VN, Cam","VN, Cuba, HQ, Lào","Cuba, TQ, Cam, Nhật"],c:1},
-{q:"Ai khởi xướng đổi mới TQ 1978?",a:["Mao","Đặng","Giang","Tập"],c:2},
-{q:"Thành tựu cải cách→ chứng minh?",a:["CNXH có sức sống","TBCN ko duy nhất","CNXH mở rộng","CNXH toàn cầu"],c:1},
-{q:"Bài học VN?",a:["Tư bản","Tự do","Chính trị trước","KTTT XHCN + mở cửa"],c:4},
-{q:"Mục tiêu VN?",a:["Dân giàu nước mạnh","Phát triển TBCN","CNH mọi giá","Giảm vai trò NN"],c:1}
+/* ========== Questions (correct is 1..4) ========== */
+const questions = [
+  {
+    question: "Hiện nay, những quốc gia nào vẫn kiên định con đường xây dựng chủ nghĩa xã hội?",
+    answers: [
+      "A. Trung Quốc, Việt Nam, Cuba, Lào",
+      "B. Trung Quốc, Nga, Việt Nam, Cam-pu-chia",
+      "C. Việt Nam, Cuba, Hàn Quốc, Lào",
+      "D. Cuba, Trung Quốc, Cam-pu-chia, Nhật Bản"
+    ],
+    correct: 1
+  },
+  {
+    question: "Ai là người khởi xướng công cuộc cải cách và mở cửa Trung Quốc từ năm 1978?",
+    answers: ["A. Mao Trạch Đông","B. Đặng Tiểu Bình","C. Giang Trạch Dân","D. Tập Cận Bình"],
+    correct: 2
+  },
+  {
+    question: "Những thành tựu của công cuộc đổi mới, cải cách ở châu Á, khu vực Mỹ La-tinh là cơ sở vững chắc để chứng minh",
+    answers: [
+      "A. chủ nghĩa xã hội có sức sống, có triển vọng thực sự trên thế giới.",
+      "B. chủ nghĩa tư bản không còn là một hệ thống duy nhất trên thế giới.",
+      "C. chủ nghĩa xã hội ngày càng phát triển và mở rộng về không gian địa lí.",
+      "D. chủ nghĩa xã hội đã trở thành một hệ thống trên phạm vi thế giới."
+    ],
+    correct: 1
+  },
+  {
+    question: "Từ công cuộc cải cách mở của Trung Quốc, Việt Nam có thể rút ra bài học kinh nghiệm gì?",
+    answers: [
+      "A. Lấy phát triển kinh tế làm trung tâm, chuyển sang nền kinh tế thị trường TBCN.",
+      "B. Lấy phát triển kinh tế làm trung tâm, tiến hành cải cách mở cửa, chuyển sang kinh tế thị trường tự do.",
+      "C. Lấy phát triển chính trị làm trung tâm, chuyển sang kinh tế thị trường XHCN.",
+      "D. Lấy phát triển kinh tế làm trung tâm, tiến hành cải cách mở cửa, chuyển nền kinh tế tập trung sang nền kinh tế thị trường XHCN."
+    ],
+    correct: 4
+  },
+  {
+    question: "Mục tiêu lâu dài của Việt Nam trong quá trình xây dựng CNXH là:",
+    answers: [
+      "A. Dân giàu, nước mạnh, dân chủ, công bằng, văn minh",
+      "B. Kinh tế tư bản phát triển",
+      "C. Công nghiệp hóa bằng mọi giá",
+      "D. Giảm vai trò của nhà nước"
+    ],
+    correct: 1
+  }
 ];
 
-let i=0,score=0, state="neutral", anim=0, end=false;
+/* ========== Game state ========== */
+let idx = 0;
+let score = 0;
+let showResult = false;
+let gameEnded = false;
+let charState = 'neutral'; // 'neutral' | 'happy' | 'sad'
 
-// Draw function
-function draw(){
-    ctx.clearRect(0,0,800,600);
+/* Animation variables */
+let tick = 0;
 
-    // background
-    if(!bgImg._fail) ctx.drawImage(bgImg,0,0,800,600);
-    else {ctx.fillStyle="#ddd"; ctx.fillRect(0,0,800,600);}
-
-    // character
-    const img = state==="happy"?happy: state==="sad"?sad:neutral;
-    const y = 150 + Math.sin(anim/10)*8;
-    const s = 1 + Math.sin(anim/20)*0.03;
-
-    ctx.save();
-    ctx.translate(400,y);
-    ctx.scale(s,s);
-    if(!img._fail) ctx.drawImage(img,-75,-75,150,150);
-    else {ctx.fillStyle="#888"; ctx.fillRect(-60,-60,120,120);} // fallback
-    ctx.restore();
-
-    // text
-    ctx.fillStyle="#000";
-    ctx.font="22px Arial";
-    ctx.fillText(q[i].q,40,350);
-    ctx.font="20px Arial";
-    q[i].a.forEach((a,k)=>ctx.fillText(`${k+1}. ${a}`,60,390+k*35));
-    ctx.fillText(`Câu ${i+1}/${q.length} | Điểm: ${score}`,20,40);
-
-    anim++;
-    requestAnimationFrame(draw);
-}
-draw();
-
-// Input
-document.addEventListener("keydown",e=>{
-    if(end) return;
-    const k = +e.key;
-    if(k>=1 && k<=4){
-        if(k===q[i].c){ score++; state="happy"; correct.play(); result.textContent="✔ đúng!"; result.style.color="green"; }
-        else { state="sad"; wrong.play(); result.textContent="✘ sai!"; result.style.color="red"; }
-
-        setTimeout(()=>{
-            i++; result.textContent=""; state="neutral";
-            if(i>=q.length){ end=true; alert(`✅ Hoàn thành! Điểm: ${score}/${q.length}`);}
-        },1000);
+/* ========== Drawing ========== */
+function drawBackground() {
+  if (bgImg._loaded && !bgImg._fail) {
+    ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+  } else {
+    // fallback background
+    ctx.fillStyle = '#f7fbff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // light grid for nice look
+    ctx.strokeStyle = '#eef5ff';
+    for (let x = 0; x < canvas.width; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
     }
+  }
+}
+
+function drawCharacter() {
+  const w = 170, h = 170;
+  const baseX = canvas.width/2 - w/2;
+  // bounce effect
+  const bounce = Math.sin(tick/10) * 8;
+  const x = baseX;
+  const y = 80 + bounce;
+  const img = charState === 'happy' ? imgHappy : (charState === 'sad' ? imgSad : imgNeutral);
+
+  ctx.save();
+  // subtle tilt based on state
+  const tilt = (charState === 'sad' ? -4 : (charState === 'happy' ? 4 : 0)) * Math.PI / 180;
+  ctx.translate(x + w/2, y + h/2);
+  ctx.rotate(tilt);
+  if (img._loaded && !img._fail) {
+    ctx.drawImage(img, -w/2, -h/2, w, h);
+  } else {
+    // fallback box + emoji
+    ctx.fillStyle = '#cfd8e3';
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.fillStyle = '#2b3a55';
+    ctx.font = '48px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const emoji = charState === 'happy' ? '😊' : (charState === 'sad' ? '😢' : '😐');
+    ctx.fillText(emoji, 0, 0);
+  }
+  ctx.restore();
+}
+
+function drawQuestionArea() {
+  const qObj = questions[idx];
+  ctx.fillStyle = '#0b2545';
+  ctx.font = 'bold 22px Arial';
+  ctx.textAlign = 'left';
+  wrapText(qObj.question, 40, 280, 720, 28);
+
+  // answers
+  ctx.font = '18px Arial';
+  for (let i = 0; i < qObj.answers.length; i++) {
+    const text = `${i+1}. ${qObj.answers[i]}`;
+    ctx.fillStyle = '#06263b';
+    ctx.fillText(text, 60, 330 + i*40);
+  }
+
+  // info
+  ctx.fillStyle = '#0b2545';
+  ctx.font = '16px Arial';
+  ctx.fillText(`Câu ${idx+1}/${questions.length}    Điểm: ${score}`, 40, 40);
+}
+
+function wrapText(text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && n > 0) {
+      ctx.fillText(line, x, y);
+      line = words[n] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, y);
+}
+
+/* Main draw */
+function render() {
+  tick++;
+  // draw
+  drawBackground();
+  drawCharacter();
+  drawQuestionArea();
+
+  // show small result text
+  if (showResult) {
+    ctx.fillStyle = (charState === 'happy') ? '#1b7a2f' : '#b92b2b';
+    ctx.font = '22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText((charState === 'happy') ? '✓ Đúng rồi!' : '✗ Sai rồi!', canvas.width/2, 480);
+  }
+
+  if (!gameEnded) requestAnimationFrame(render);
+  else {
+    // draw end summary
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0b2545';
+    ctx.font = '28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Trò chơi kết thúc!', canvas.width/2, 180);
+    ctx.font = '22px Arial';
+    ctx.fillText(`Điểm của bạn: ${score}/${questions.length}`, canvas.width/2, 230);
+  }
+}
+
+/* ========== Input handling ========== */
+function tryPlayAudio(audioEl){
+  if(!audioEl) return;
+  try{
+    const p = audioEl.play();
+    if(p && p.catch) p.catch(()=>{/* ignore autoplay blocked */});
+  }catch(e){}
+}
+
+document.addEventListener('keydown', (ev) => {
+  if (gameEnded) return;
+  if (showResult) return; // ignore while result shown
+  const key = parseInt(ev.key);
+  if (!isNaN(key) && key >= 1 && key <= 4) {
+    const qObj = questions[idx];
+    const correct = (key === qObj.correct);
+    showResult = true;
+    if (correct) {
+      charState = 'happy';
+      score++;
+      tryPlayAudio(correctSound);
+    } else {
+      charState = 'sad';
+      tryPlayAudio(wrongSound);
+    }
+    // show result briefly then next question or end
+    setTimeout(() => {
+      idx++;
+      showResult = false;
+      charState = 'neutral';
+      if (idx >= questions.length) {
+        gameEnded = true;
+      }
+    }, 1300);
+  }
 });
 
-// Buttons
-document.getElementById("restartBtn").onclick = ()=>{ i=0;score=0;end=false;state="neutral"; };
-let m = false;
-document.getElementById("musicBtn").onclick=()=>{m=!m; if(m)bg.play(); else bg.pause();};
-</script>
+/* Restart & music button */
+restartBtn.addEventListener('click', () => {
+  idx = 0; score = 0; gameEnded = false; showResult = false; charState = 'neutral';
+  // ensure render loop active
+  requestAnimationFrame(render);
+});
+let musicOn = false;
+musicBtn.addEventListener('click', () => {
+  musicOn = !musicOn;
+  if (musicOn) {
+    tryPlayAudio(bgMusic);
+    musicBtn.textContent = '🔈 Tắt nhạc';
+  } else {
+    try { bgMusic.pause(); } catch(e){}
+    musicBtn.textContent = '🔊 Bật/Tắt nhạc';
+  }
+});
 
+/* Start render */
+requestAnimationFrame(render);
+</script>
 </body>
 </html>
